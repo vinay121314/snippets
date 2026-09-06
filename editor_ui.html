@@ -440,6 +440,17 @@ function aboutHtml(){
   <p><b>Edit snippets</b>, <b>Search</b>, enable or disable expansion,
      <b>Restore backup...</b>, <b>Start with Windows</b>, and <b>Quit</b>.</p>
 
+  <h3>Updates</h3>
+  <p>The app checks for a new version shortly after it starts, and every six hours
+     after that. When one is available the tray menu offers <b>Install update</b>.
+     Choosing it downloads the new version, checks it is intact, replaces itself
+     and restarts. Nothing to download by hand.</p>
+  <p>If the check cannot reach the internet it stays quiet and the app carries on
+     working normally.</p>
+  <p>On a managed computer an administrator can point updates at an internal
+     location, have them install silently, or switch them off, using the registry
+     values under <code>HKLM\Software\Snippets</code>.</p>
+
   <h3>Where your snippets are kept</h3>
   <p>In <code>%APPDATA%\\SnippetsApp</code>, outside the program folder, so they are never
      bundled into the app or shared when you send it to someone.</p>`;

@@ -21,13 +21,14 @@ Run:   python brain.py
 """
 import os, sys, time, json, threading, subprocess, ctypes
 import snip_core as core
+import updater
 from snip_core import log, APP_NAME, SEARCH_HOTKEY, DATA_FILE
 
 # ---------------------------------------------------------------------------
 # Shown in the About sheet (the ? button in the editor). Single source for
 # the credit and version -- nothing else hard-codes either.
 AUTHOR  = "Vinay Prasad"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 # ---------------------------------------------------------------------------
 
 MAIN_HOTKEY="ctrl+alt+n"
@@ -636,6 +637,97 @@ def _set_autostart(enable):
 def _toggle_autostart(icon=None,item=None):
     _set_autostart(not _autostart_enabled())
 
+# ---- self-update -----------------------------------------------------------
+_pending_update = {"manifest": None}
+
+def _release_single_instance():
+    """Drop the single-instance mutex so a replacement process can start.
+    Without this the updated exe launches, finds the mutex still held by the
+    process that is on its way out, and shows 'already running' instead of
+    coming back up."""
+    global _instance_mutex
+    try:
+        if _instance_mutex:
+            ctypes.windll.kernel32.CloseHandle(_instance_mutex)
+            _instance_mutex = None
+    except Exception:
+        pass
+
+def _notify(title, message):
+    try:
+        if _tray is not None: _tray.notify(message, title)
+    except Exception:
+        pass
+
+def _refresh_tray():
+    try:
+        if _tray is not None: _tray.update_menu()
+    except Exception:
+        pass
+
+def _update_label(i=None):
+    m = _pending_update["manifest"]
+    return ("Install update v%s" % m.get("version")) if m else "Check for updates"
+
+def _check_for_updates(background=False):
+    m = updater.check(VERSION)
+    _pending_update["manifest"] = m
+    _refresh_tray()
+    if m:
+        if updater.config()["auto"]:
+            log("auto-update policy is on, installing v%s" % m.get("version"))
+            _install_update(); return m
+        _notify("Snippets", "Version %s is available. Open the tray menu to install."
+                % m.get("version"))
+    elif not background:
+        _notify("Snippets", "You are on the latest version (v%s)." % VERSION)
+    return m
+
+def _install_update():
+    """Download, verify, swap the executable, and restart into it."""
+    m = _pending_update["manifest"]
+    try:
+        if not m:
+            m = _check_for_updates()
+            if not m: return
+        if not updater.can_self_update():
+            if not getattr(sys, "frozen", False):
+                _notify("Snippets", "Running from source, so there is nothing to update.")
+            else:
+                _notify("Snippets", "Cannot update: no write access to the install folder.")
+            return
+        _notify("Snippets", "Downloading version %s..." % m.get("version"))
+        exe = updater.perform(m)
+        log("updated to", m.get("version"), "- restarting")
+        _release_single_instance()
+        subprocess.Popen([exe], close_fds=True)
+        try:
+            if _tray is not None: _tray.stop()
+        except Exception:
+            pass
+        os._exit(0)
+    except Exception as e:
+        log("update failed:", e)
+        _notify("Snippets", "Update failed: %s" % e)
+
+def _menu_update(icon=None, item=None):
+    threading.Thread(target=_install_update if _pending_update["manifest"]
+                     else _check_for_updates, daemon=True).start()
+
+def _start_update_watch():
+    """One check shortly after startup, then every six hours. Failures are
+    silent by design: a machine that cannot reach the update source should
+    still be a perfectly good text expander."""
+    if updater.config()["disabled"]:
+        log("self-update disabled by policy"); return
+    def loop():
+        time.sleep(20)                       # let the app finish starting first
+        while True:
+            try: _check_for_updates(background=True)
+            except Exception as e: log("update watch error:", e)
+            time.sleep(6*60*60)
+    threading.Thread(target=loop, daemon=True).start()
+
 # ---- tray ----
 _tray=None
 def _img():
@@ -659,6 +751,7 @@ def start_tray():
         pystray.MenuItem("Search", open_search),
         pystray.MenuItem(lambda i:("Disable" if store.data.get("enabled",True) else "Enable")+" expansion", _toggle),
         pystray.MenuItem("Restore backup...", open_restore),
+        pystray.MenuItem(_update_label, _menu_update),
         pystray.MenuItem("Start with Windows", _toggle_autostart, checked=lambda i: _autostart_enabled()),
         pystray.MenuItem("Quit", _quit))
     _tray=pystray.Icon(APP_NAME,_img(),APP_NAME,menu); log("tray starting")
@@ -676,10 +769,12 @@ def main():
                 APP_NAME, 0x40)   # MB_ICONINFORMATION
         except Exception: pass
         return
+    updater.cleanup_old()          # delete the previous exe left by an update
     start_hook()
-    log("Ready. %d snippet(s)."%len(store.data.get("snippets",[])))
+    log("Ready. %d snippet(s). v%s"%(len(store.data.get("snippets",[])), VERSION))
     if pystray is not None: start_tray()
     else: log("TRAY DISABLED")
+    _start_update_watch()
     _init_editor_window()
     if webview is not None and _editor_window is not None:
         try: webview.start(storage_path=(_wv_dir or None))

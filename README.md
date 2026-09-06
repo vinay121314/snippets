@@ -28,6 +28,8 @@ Single portable `.exe`. No installer, no admin rights, no runtime to install.
 - **Automatic backups**: every change to your snippets is snapshotted first,
   and any of the last 20 can be restored from the tray menu.
 - **Import and export**: JSON, one snippet or all of them.
+- **Automatic updates**: the app checks for a new version and can install it
+  and restart itself, so there is nothing to download by hand.
 - **Follows your Windows light and dark theme.**
 
 ## Install
@@ -41,6 +43,34 @@ backup...**, **Start with Windows**, and to enable or disable expansion.
 An **About and help** page is built into the editor, behind the `?` button in
 the top bar. It explains every field and marker.
 
+## Updates
+
+The app checks for a newer version shortly after starting and every six hours
+after that. When one is found, the tray menu offers **Install update**. Choosing
+it downloads the new build, verifies its checksum, replaces the running
+executable and restarts.
+
+If the check cannot reach the network it fails silently and the app keeps
+working.
+
+### For administrators
+
+Update behaviour is controlled from `HKLM\Software\Snippets`, which overrides
+everything else, so a managed deployment does not need a special build:
+
+| Value | Type | Effect |
+|---|---|---|
+| `UpdateUrl` | String | Serve updates from your own location instead. The app expects `version.json` and the executable at that address |
+| `DisableUpdate` | DWORD `1` | Turn self-update off completely and manage versions yourself |
+| `AutoUpdate` | DWORD `1` | Install updates silently as soon as they are found, with no prompt |
+
+The same three settings are also readable from the environment as
+`SNIPPETS_UPDATE_URL`, `SNIPPETS_DISABLE_UPDATE` and `SNIPPETS_AUTO_UPDATE`,
+which is useful for testing.
+
+Network access needed: outbound HTTPS to the host serving the release. Nothing
+else, and nothing is ever sent, the app only fetches.
+
 ## Build from source
 
 Requires Python 3.10 or newer on Windows.
@@ -50,13 +80,16 @@ pip install pywebview pystray pillow keyboard pyperclip uiautomation comtypes py
 BUILD.bat
 ```
 
-`BUILD.bat` runs the test suite first and refuses to build if it fails. The
-exe appears in `dist\Snippets.exe`.
+`BUILD.bat` runs the test suite first and refuses to build if it fails. It
+produces `dist\Snippets.exe` and `dist\version.json`. Publishing a new version
+means uploading **both** files to a release: the app reads `version.json` to
+learn what is available and to verify the download.
 
 ## Tests
 
 ```
 python tests/test_core.py     fast, headless, no GUI (about 0.2s)
+python tests/test_updater.py  update logic, including a real download and swap
 python tests/test_live.py     end-to-end against real editing surfaces
 python tests/test_ui.py       renders the editor and checks it wired up
 ```
