@@ -1,3 +1,4 @@
+# Snippets. Copyright (c) 2026 Vinay Prasad. Released under the MIT Licence.
 """Shared core for Snippets: storage, dynamic values, rich clipboard, paste,
 triggers, hotkeys. No webview, no pystray here, so it is safe to import from both the
 lightweight tray process and the on-demand editor."""

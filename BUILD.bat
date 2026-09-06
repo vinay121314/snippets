@@ -35,8 +35,18 @@ for %%T in (test_core test_updater test_feedback) do (
   )
 )
 
+echo Writing version resource...
+python make_release.py versioninfo
+if errorlevel 1 (
+  echo.
+  echo ERROR: could not write version_info.txt.
+  pause
+  exit /b 1
+)
+
 echo Building Snippets ^(single process: tray + hotkeys + editor^)...
 python -m PyInstaller --onefile --noconsole --icon icon.ico ^
+  --version-file version_info.txt ^
   --add-data "editor_ui.html;." --add-data "snip_core.py;." ^
   --collect-all webview --collect-all pystray ^
   --collect-all uiautomation --collect-all comtypes ^

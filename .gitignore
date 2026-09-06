@@ -18,3 +18,7 @@ backups/
 .idea/
 Thumbs.db
 desktop.ini
+
+# Generated at build time
+version_info.txt
+outbox/

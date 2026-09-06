@@ -1,3 +1,4 @@
+# Snippets. Copyright (c) 2026 Vinay Prasad. Released under the MIT Licence.
 """Self-update from a published release.
 
 Deliberately uses urllib rather than a third-party HTTP library. On Windows,

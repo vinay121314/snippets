@@ -24,7 +24,51 @@ def app_version():
     return m.group(1)
 
 
+VERSION_INFO = os.path.join(ROOT, "version_info.txt")
+
+AUTHOR = "Vinay Prasad"
+YEAR = "2026"
+
+
+def write_version_info():
+    """Windows version resource for the exe.
+
+    This is what fills in the Details tab of the file's Properties dialog, so
+    the author and licence travel with the binary itself rather than only
+    living in the repository. Generated from VERSION so it cannot fall out of
+    step with the build.
+    """
+    v = app_version()
+    parts = [int(x) for x in v.split(".")] + [0, 0, 0, 0]
+    quad = tuple(parts[:4])
+    body = """VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=%(q)s, prodvers=%(q)s, mask=0x3f, flags=0x0,
+    OS=0x40004, fileType=0x1, subtype=0x0, date=(0, 0)),
+  kids=[
+    StringFileInfo([StringTable('040904B0', [
+      StringStruct('CompanyName', '%(author)s'),
+      StringStruct('FileDescription', 'Snippets, a Windows text expander'),
+      StringStruct('FileVersion', '%(v)s'),
+      StringStruct('InternalName', 'Snippets'),
+      StringStruct('LegalCopyright',
+                   'Copyright (c) %(year)s %(author)s. Released under the MIT Licence.'),
+      StringStruct('OriginalFilename', 'Snippets.exe'),
+      StringStruct('ProductName', 'Snippets'),
+      StringStruct('ProductVersion', '%(v)s'),
+    ])]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
+""" % {"q": quad, "v": v, "author": AUTHOR, "year": YEAR}
+    with open(VERSION_INFO, "w", encoding="utf-8") as f:
+        f.write(body)
+    print("version_info.txt written for v%s" % v)
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "versioninfo":
+        write_version_info(); return
     if not os.path.exists(EXE):
         raise SystemExit("dist/Snippets.exe not found, build first")
     with open(EXE, "rb") as f:

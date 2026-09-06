@@ -1,3 +1,4 @@
+# Snippets. Copyright (c) 2026 Vinay Prasad. Released under the MIT Licence.
 """
 Snippets (brain): the single always-on process. Handles triggers, hotkeys,
 paste, tray, AND the glassmorphism editor (one persistent hidden WebView2
@@ -19,7 +20,7 @@ run_detached(), the three subsystems no longer fight over a thread.
 SETUP: pip install keyboard pyperclip pystray pillow pywebview
 Run:   python brain.py
 """
-import os, sys, time, json, threading, subprocess, ctypes, webbrowser, platform
+import os, sys, time, json, threading, subprocess, ctypes, platform
 import snip_core as core
 import updater
 import feedback
@@ -612,17 +613,6 @@ def _fillin_popup(specs):
     win.mainloop()
     return result["values"]
 
-def _open_in_browser(url):
-    """os.startfile first. webbrowser can fail in a windowed build with no
-    console attached, since some of its fallbacks expect one; os.startfile
-    hands the URL straight to the shell, which is what the shell does with a
-    link anywhere else in Windows."""
-    try:
-        os.startfile(url); return True
-    except Exception as e:
-        log("startfile failed, trying webbrowser:", e)
-    return webbrowser.open(url)
-
 def _centre(win, w, h):
     """Put the window in the middle of the screen. A dialog that opens partly
     off-screen is indistinguishable from one that did not open at all."""
@@ -684,20 +674,50 @@ def _feedback_popup():
 
     tk.Label(win, text="Message", bg=bg, fg=dim, font=("Segoe UI", 9)).pack(anchor="w", padx=16)
 
+    status = tk.Label(win, text="", bg=bg, fg=dim, font=("Segoe UI", 9))
+
+    def finish(ok, queued):
+        if ok:
+            status.config(text="Sent. Thank you.", fg="#4ee0c0")
+        elif queued:
+            status.config(text="No connection. Saved and will be sent later.", fg=dim)
+        else:
+            status.config(text="Could not send. Nothing was saved.", fg="#ff6b85")
+        win.after(1400, win.destroy)
+
     def send():
         body = txt.get("1.0", "end").strip()
         if not body:
             messagebox.showinfo("Send feedback", "Please write a message first.", parent=win)
             return
-        try:
-            url = feedback.build_url(kind.get(), body, name=name.get(),
-                                     version=VERSION, system=platform.platform())
-            _open_in_browser(url)
-            log("feedback opened in browser (%s)" % kind.get())
-            win.destroy()
-        except Exception as e:
-            log("feedback failed:", e)
-            messagebox.showerror("Send feedback", str(e), parent=win)
+        if not feedback.configured():
+            messagebox.showinfo("Send feedback",
+                "Feedback is not set up in this build yet.", parent=win)
+            return
+        send_btn.config(state="disabled")
+        status.config(text="Sending...", fg=dim)
+        payload = feedback.build_payload(kind.get(), body, name=name.get(),
+                                         version=VERSION, system=platform.platform())
+
+        def worker():
+            # Off the UI thread: a slow or unreachable endpoint must not
+            # freeze the dialog. Anything that cannot go now is queued and
+            # retried later rather than lost.
+            ok = False; queued = False
+            try:
+                feedback.send(payload)
+                ok = True
+                log("feedback sent (%s)" % kind.get())
+            except Exception as e:
+                log("feedback send failed:", e)
+                try:
+                    feedback.queue(payload); queued = True
+                except Exception as e2:
+                    log("feedback could not be queued:", e2)
+            try: win.after(0, lambda: finish(ok, queued))
+            except Exception: pass
+
+        threading.Thread(target=worker, daemon=True).start()
 
     # Buttons are packed against the BOTTOM edge BEFORE the message box, so
     # they always keep their space. Packed after an expanding widget they get
@@ -706,10 +726,12 @@ def _feedback_popup():
     btns = tk.Frame(win, bg=bg); btns.pack(side="bottom", fill="x", padx=16, pady=(0, 14))
     tk.Button(btns, text="Cancel", command=win.destroy, relief="flat",
               bg=card, fg=ink, font=("Segoe UI", 10), padx=16, pady=4).pack(side="right")
-    tk.Button(btns, text="Send", command=send, relief="flat",
-              bg="#7c5cff", fg="#ffffff", font=("Segoe UI", 10, "bold"),
-              padx=18, pady=4).pack(side="right", padx=(0, 8))
-    tk.Label(win, text="Opens in your browser so you can check it before sending. "
+    send_btn = tk.Button(btns, text="Send", command=send, relief="flat",
+                         bg="#7c5cff", fg="#ffffff", font=("Segoe UI", 10, "bold"),
+                         padx=18, pady=4)
+    send_btn.pack(side="right", padx=(0, 8))
+    status.pack(side="bottom", anchor="w", padx=16, pady=(0, 6))
+    tk.Label(win, text="Sent straight to the project. "
                        "Your app version and Windows version are included.",
              bg=bg, fg=dim, font=("Segoe UI", 8), wraplength=470,
              justify="left").pack(side="bottom", anchor="w", padx=16, pady=(0, 8))
@@ -853,6 +875,24 @@ def _menu_update(icon=None, item=None):
     threading.Thread(target=_install_update if _pending_update["manifest"]
                      else _check_for_updates, daemon=True).start()
 
+def _start_feedback_retry():
+    """Send anything that could not go out earlier. Runs quietly in the
+    background: a report written offline should arrive on its own once the
+    machine is back on the network, without the user doing anything."""
+    if not feedback.configured(): return
+    def loop():
+        time.sleep(45)
+        while True:
+            try:
+                waiting = len(feedback.pending())
+                if waiting:
+                    sent, left = feedback.flush()
+                    if sent: log("feedback: sent %d queued report(s), %d left" % (sent, left))
+            except Exception as e:
+                log("feedback retry error:", e)
+            time.sleep(feedback.RETRY_EVERY)
+    threading.Thread(target=loop, daemon=True).start()
+
 def _start_update_watch():
     """One check shortly after startup, then every six hours. Failures are
     silent by design: a machine that cannot reach the update source should
@@ -916,6 +956,7 @@ def main():
     if pystray is not None: start_tray()
     else: log("TRAY DISABLED")
     _start_update_watch()
+    _start_feedback_retry()
     _init_editor_window()
     if webview is not None and _editor_window is not None:
         try: webview.start(storage_path=(_wv_dir or None))

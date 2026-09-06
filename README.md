@@ -32,8 +32,8 @@ Single portable `.exe`. No installer, no admin rights, no runtime to install.
   and restart itself, so there is nothing to download by hand.
 - **Dark by default**, with a **Dark** switch in the title bar for light mode.
 - **Feedback built in**: report a bug or suggest something from the tray menu.
-  It opens a pre-filled report in the browser so you can see exactly what is
-  being sent before you submit it.
+  It sends straight from the app, with no account needed, and is queued and
+  retried automatically if you happen to be offline.
 - **Starts with Windows** from first run, and can be switched off in the tray.
 
 ## Install
@@ -122,9 +122,22 @@ Your snippets are stored **outside the project folder** and are never bundled
 into the exe or committed to this repo. A fresh install starts with six example
 snippets that demonstrate each feature.
 
+## Feedback
+
+**Send feedback...** in the tray menu posts to a small relay, which files the
+report on this repository. The relay holds the credential so that no token
+ships inside the app, where anyone could read it out of the binary. Setting it
+up is a one-time job, described in [worker/README.md](worker/README.md), and
+free.
+
+Until it is configured the app says so rather than failing quietly.
+
 ## Author
 
 Created by **Vinay Prasad**.
+
+Copyright and authorship are embedded in the executable itself, visible under
+Properties, Details.
 
 ## Licence
 
