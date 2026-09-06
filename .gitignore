@@ -1,0 +1,20 @@
+# Build output
+build/
+dist/
+*.spec
+__pycache__/
+*.py[cod]
+
+# Your own snippet data never belongs in the repo.
+# It normally lives in %APPDATA%\SnippetsApp\ (outside this folder), but
+# ignore it here too in case a copy is ever exported or dropped in by hand.
+snippets.json
+snippets.log
+backups/
+*_export.json
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

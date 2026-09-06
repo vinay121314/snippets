@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snippets</title>
+<style>
+/* ============================================================
+   Clean, flat UI with a single accent. Follows the OS theme via
+   prefers-color-scheme: every colour is a token defined once for light
+   and overridden once for dark, so no rule hard-codes a colour and the
+   two palettes cannot drift apart.
+
+   Deliberately no backdrop-filter and no remote webfont. Translucent
+   panels over a gradient hurt legibility for the long formatted text
+   this app exists to edit, and a Google Fonts request either stalls or
+   fails outright on a locked-down machine.
+   ============================================================ */
+:root{
+  color-scheme: light dark;
+  --bg:#f3f4f7;
+  --surface:#ffffff;
+  --surface-2:#f7f8fa;
+  --surface-3:#eef0f4;
+  --border:#e2e5ea;
+  --border-strong:#cfd4dd;
+  --ink:#15171c;
+  --ink2:#525a67;
+  --ink3:#878e9b;
+  --accent:#6b4dfa;
+  --accent-ink:#ffffff;
+  --accent-soft:rgba(107,77,250,.10);
+  --accent-line:rgba(107,77,250,.28);
+  --danger:#d92d4b;
+  --danger-soft:rgba(217,45,75,.10);
+  --ok:#0f7a5f;
+  --ok-soft:#d8f5ec;
+  --shadow:0 1px 2px rgba(16,20,30,.05), 0 4px 12px rgba(16,20,30,.05);
+  --radius:12px; --radius-sm:9px;
+  --mono:"Cascadia Code",Consolas,"SF Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e1014;
+    --surface:#16191f;
+    --surface-2:#1c2028;
+    --surface-3:#232833;
+    --border:#262b34;
+    --border-strong:#333945;
+    --ink:#e9ebf0;
+    --ink2:#a6aebc;
+    --ink3:#737b8a;
+    --accent:#9b87ff;
+    --accent-ink:#15121f;
+    --accent-soft:rgba(155,135,255,.15);
+    --accent-line:rgba(155,135,255,.34);
+    --danger:#ff6b85;
+    --danger-soft:rgba(255,107,133,.13);
+    --ok:#5fe3bd;
+    --ok-soft:#11342c;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28);
+  }
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  color:var(--ink); background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+}
+/* kept as a class name so the markup and JS stay untouched: it is now
+   simply a solid card rather than a frosted one */
+.glass{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:var(--shadow)}
+
+.app{display:flex;flex-direction:column;height:100vh;padding:12px;gap:10px}
+
+/* top bar */
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 18px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;letter-spacing:-.2px}
+.brand .dot{width:24px;height:24px;border-radius:7px;background:var(--accent);
+  display:grid;place-items:center;color:var(--accent-ink);font-size:13px}
+.topbar .sp{flex:1}
+.switch{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ink2);font-weight:500}
+.toggle{width:40px;height:23px;border-radius:12px;background:var(--surface-3);position:relative;
+  cursor:pointer;transition:.2s;border:1px solid var(--border-strong)}
+.toggle.on{background:var(--accent);border-color:var(--accent)}
+.toggle .kn{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
+  background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.toggle.on .kn{left:19px}
+
+.body{flex:1;display:flex;gap:10px;min-height:0}
+
+/* sidebar */
+.side{width:288px;display:flex;flex-direction:column;gap:9px;padding:12px}
+.searchrow{display:flex;gap:8px}
+.searchrow input{flex:1;background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:9px 12px;font:inherit;font-size:13px;color:var(--ink);
+  outline:none;transition:border-color .15s,box-shadow .15s}
+.searchrow input::placeholder{color:var(--ink3)}
+.searchrow input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.addbtn{width:38px;height:38px;border-radius:var(--radius-sm);border:none;background:var(--accent);
+  color:var(--accent-ink);font-size:19px;line-height:1;cursor:pointer;transition:filter .15s}
+.addbtn:hover{filter:brightness(1.08)}
+.iorow{display:flex;gap:6px}
+.iobtn{flex:1;font-size:11px;font-weight:600;color:var(--ink2);background:var(--surface-2);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;cursor:pointer;transition:.15s}
+.iobtn:hover{background:var(--surface-3);color:var(--ink)}
+.items{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:2px}
+.item{padding:10px 11px;border-radius:var(--radius-sm);cursor:pointer;
+  transition:background .15s,border-color .15s;background:transparent;border:1px solid transparent}
+.item:hover{background:var(--surface-2)}
+.item.sel{background:var(--accent-soft);border-color:var(--accent-line)}
+.item .lab{font-weight:600;font-size:13px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .trigs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px}
+.chip{font-family:var(--mono);font-size:10.5px;background:var(--accent-soft);color:var(--accent);
+  padding:1px 6px;border-radius:5px}
+.item .tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px}
+.tagchip{font-size:10px;background:var(--surface-3);color:var(--ink2);padding:1px 6px;border-radius:5px}
+.item .prev{font-size:11.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.tagrow{display:flex;gap:5px;flex-wrap:wrap;padding:0 1px}
+.tagrow:empty{display:none}
+.tagfilter{font-size:10.5px;background:var(--surface-2);color:var(--ink2);padding:4px 9px;
+  border-radius:7px;border:1px solid var(--border);cursor:pointer;transition:.15s}
+.tagfilter:hover{background:var(--surface-3);color:var(--ink)}
+.tagfilter.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+.about{font-size:10.5px;color:var(--ink3);text-align:center;padding-top:8px;
+  border-top:1px solid var(--border);line-height:1.6}
+.about b{font-weight:600;color:var(--ink2)}
+
+/* editor */
+.editor{flex:1;display:flex;flex-direction:column;padding:20px 22px;overflow-y:auto;min-width:0}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--ink3);font-weight:700;margin-bottom:6px}
+.field input, .rt{width:100%;background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:10px 12px;font:inherit;font-size:14px;color:var(--ink);
+  outline:none;transition:border-color .15s,box-shadow .15s}
+.field input:focus, .rt:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.row2{display:flex;gap:12px}.row2 .field{flex:1}
+.checkrow{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2);
+  font-weight:600;margin-bottom:15px;cursor:pointer}
+.checkrow input{width:auto;accent-color:var(--accent)}
+.checkhint{font-size:11px;font-weight:400;color:var(--ink3)}
+
+.toolbar{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding:6px;
+  background:var(--surface-3);border:1px solid var(--border);
+  border-radius:var(--radius-sm) var(--radius-sm) 0 0;border-bottom:none}
+.tb{background:transparent;border:none;border-radius:6px;padding:5px 9px;font:inherit;
+  font-size:12.5px;font-weight:600;color:var(--ink2);cursor:pointer;transition:.12s}
+.tb:hover{background:var(--surface);color:var(--accent)}
+.tb b{font-weight:800}.tb i{font-style:italic}
+.tbsep{width:1px;height:16px;background:var(--border-strong);margin:0 4px}
+/* the message box is where long formatted text is read, so keep it the
+   plainest, highest-contrast surface in the window */
+.rt{border-radius:0 0 var(--radius-sm) var(--radius-sm);min-height:180px;line-height:1.65;
+  overflow-y:auto;max-height:340px;background:var(--surface)}
+.rt:empty:before{content:attr(data-ph);color:var(--ink3)}
+.rt a{color:var(--accent);font-weight:500}
+.rt ol,.rt ul{margin:6px 0;padding-left:24px}
+.rt li{margin:3px 0;padding-left:3px}
+.rt code{font-family:var(--mono);font-size:12.5px;background:var(--accent-soft);
+  color:var(--accent);padding:1px 5px;border-radius:4px}
+.rt hr{border:none;border-top:1px solid var(--border-strong);margin:10px 0}
+#codeBtn code{background:transparent;padding:0;font-size:11px}
+
+.hintline{font-size:11.5px;color:var(--ink3);margin-top:7px;line-height:1.6}
+.hintline code{background:var(--surface-3);color:var(--ink2);padding:1px 5px;border-radius:4px;
+  font-size:11px;font-family:var(--mono)}
+.fielderr{font-size:11.5px;color:var(--danger);margin-top:5px;min-height:14px}
+
+.actions{display:flex;gap:9px;margin-top:auto;padding-top:16px}
+.btn{padding:10px 18px;border-radius:var(--radius-sm);font:inherit;font-size:13.5px;font-weight:600;
+  cursor:pointer;transition:.15s;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--ink)}
+.btn:hover{background:var(--surface-3)}
+.btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08);background:var(--accent)}
+.btn.danger{background:transparent;border-color:transparent;color:var(--danger)}
+.btn.danger:hover{background:var(--danger-soft)}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);
+  background:var(--ok-soft);color:var(--ok);border:1px solid var(--ok);
+  padding:10px 20px;border-radius:var(--radius-sm);font-weight:600;font-size:13px;
+  opacity:0;transition:.25s;pointer-events:none;box-shadow:var(--shadow)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--ink3)}
+
+/* ---- About / help sheet -------------------------------------------- */
+.iconbtn{width:28px;height:28px;border-radius:50%;border:1px solid var(--border-strong);
+  background:var(--surface-2);color:var(--ink2);font-size:13px;font-weight:700;line-height:1;
+  cursor:pointer;transition:.15s;display:grid;place-items:center}
+.iconbtn:hover{background:var(--surface-3);color:var(--accent);border-color:var(--accent)}
+
+.overlay{position:fixed;inset:0;background:rgba(10,12,16,.55);z-index:50;
+  display:flex;align-items:center;justify-content:center;padding:26px}
+.overlay[hidden]{display:none}
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:0 18px 50px rgba(0,0,0,.28);width:min(760px,100%);max-height:100%;
+  display:flex;flex-direction:column;overflow:hidden}
+.sheet header{display:flex;align-items:center;gap:12px;padding:18px 22px;
+  border-bottom:1px solid var(--border)}
+.sheet header .t{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.sheet header .v{font-size:11px;color:var(--ink3);font-family:var(--mono)}
+.sheet .scroll{overflow-y:auto;padding:20px 22px 8px}
+.sheet .scroll{padding-bottom:18px}
+.doc .credit{margin:22px 0 0;padding-top:14px;border-top:1px solid var(--border);
+  font-size:12px;color:var(--ink3)}
+.doc .credit b{color:var(--ink2);font-weight:600}
+
+.doc h3{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--ink3);
+  font-weight:700;margin:20px 0 9px}
+.doc h3:first-child{margin-top:0}
+.doc p{font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:9px}
+.doc ol,.doc ul{margin:0 0 10px 18px}
+.doc li{font-size:13px;color:var(--ink2);line-height:1.7;margin:3px 0}
+.doc b{color:var(--ink);font-weight:600}
+.doc code{font-family:var(--mono);font-size:12px;background:var(--surface-3);
+  color:var(--accent);padding:1px 5px;border-radius:4px;white-space:nowrap}
+.doc table{width:100%;border-collapse:collapse;margin-bottom:10px}
+.doc td{font-size:13px;color:var(--ink2);padding:6px 10px 6px 0;vertical-align:top;
+  border-bottom:1px solid var(--border);line-height:1.6}
+.doc td:first-child{width:172px;white-space:nowrap}
+.doc tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar glass">
+    <div class="brand"><span class="dot">✦</span> Snippets</div>
+    <div class="sp"></div>
+    <div class="switch">Expansion <div class="toggle on" id="tg"><div class="kn"></div></div></div>
+    <button class="iconbtn" id="aboutBtn" title="About and help">?</button>
+  </div>
+  <div class="body">
+    <div class="side glass">
+      <div class="searchrow">
+        <input id="filter" placeholder="Search snippets">
+        <button class="addbtn" id="add">+</button>
+      </div>
+      <div class="iorow">
+        <button class="iobtn" id="importBtn">📥 Import</button>
+        <button class="iobtn" id="exportAllBtn">📤 Export all</button>
+      </div>
+      <div class="tagrow" id="tagrow"></div>
+      <div class="items" id="items"></div>
+    </div>
+    <div class="editor glass" id="editorPane"></div>
+  </div>
+</div>
+<div class="overlay" id="aboutOverlay" hidden>
+  <div class="sheet">
+    <header>
+      <span class="t">Snippets</span><span class="v" id="aboutVer"></span>
+      <div style="flex:1"></div>
+      <button class="iconbtn" id="aboutClose" title="Close">&times;</button>
+    </header>
+    <div class="scroll doc" id="aboutDoc"></div>
+
+  </div>
+</div>
+<div class="toast" id="toast">Saved</div>
+
+<script>
+let STATE={snippets:[],enabled:true}, selId=null, filterText="", activeTag=null;
+function api(){return (window.pywebview&&window.pywebview.api)?window.pywebview.api:null;}
+function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+function wrapSelectionWithTag(tagName){
+  // no built-in execCommand wraps an arbitrary tag like <code> the way
+  // "bold"/"italic" do -- do it manually via the Selection/Range API.
+  const sel=window.getSelection();
+  if(!sel.rangeCount) return;
+  const range=sel.getRangeAt(0);
+  if(range.collapsed) return;
+  const el=document.createElement(tagName);
+  try{ range.surroundContents(el); }
+  catch(e){
+    // surroundContents throws if the range partially spans element
+    // boundaries -- fall back to extract+wrap, which handles that case too.
+    const frag=range.extractContents();
+    el.appendChild(frag);
+    range.insertNode(el);
+  }
+  sel.removeAllRanges();
+}
+function mdToHtml(t){
+  const lines=(t||"").split("\n");
+  function inl(x){let s=esc(x);
+    const codes=[];
+    s=s.replace(/`([^`]+)`/g,(m,p1)=>{codes.push(p1);return "\x00K"+(codes.length-1)+"\x00";});
+    s=s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>');
+    s=s.replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>");
+    codes.forEach((c,i)=>{s=s.replace("\x00K"+i+"\x00","<code>"+c+"</code>");});
+    return s;}
+  let h="",i=0;
+  while(i<lines.length){
+    if(/^-{3,}$/.test(lines[i].trim())){h+="<hr>";i++;continue;}
+    if(/^\d+\.\s/.test(lines[i])){const first=parseInt(lines[i],10)||1;
+      h+=(first===1?"<ol>":'<ol start="'+first+'">');
+      while(i<lines.length&&/^\d+\.\s/.test(lines[i])){h+="<li>"+inl(lines[i].replace(/^\d+\.\s/,""))+"</li>";i++;}h+="</ol>";continue;}
+    if(/^[-*]\s/.test(lines[i])){h+="<ul>";while(i<lines.length&&/^[-*]\s/.test(lines[i])){h+="<li>"+inl(lines[i].replace(/^[-*]\s/,""))+"</li>";i++;}h+="</ul>";continue;}
+    const c=inl(lines[i]); h+="<div>"+(c===""?"<br>":c)+"</div>"; i++;
+  }
+  return h;
+}
+function htmlToMd(el){
+  // contenteditable produces nested structures: <div><ol>...</ol></div>,
+  // <div> blocks, bare text with <br>, inline formatting. Walk recursively so
+  // lists nested inside divs are handled (fixes "new numbered lists lose numbers").
+  let lines=[]; let cur="";
+  function flush(){ lines.push(cur); cur=""; }
+  function containsBlock(node){
+    // does this element contain a block-level child (ol/ul/div/p/br/hr)?
+    return !!node.querySelector && !!node.querySelector("ol,ul,div,p,br,hr");
+  }
+  function walk(node){
+    node.childNodes.forEach(n=>{
+      if(n.nodeType===3){ cur+=n.nodeValue; return; }
+      if(n.nodeType!==1) return;
+      const tag=n.nodeName.toLowerCase();
+      if(tag==="br"){ flush(); return; }
+      if(tag==="hr"){ if(cur.trim()!=="")flush(); cur="---"; flush(); return; }
+      if(tag==="ol"){ if(cur.trim()!=="")flush(); let idx=parseInt(n.getAttribute("start"),10)||1;
+        n.childNodes.forEach(li=>{ if(li.nodeName.toLowerCase()==="li"){ cur=idx+". "+inlineMd(li); flush(); idx++; } }); return; }
+      if(tag==="ul"){ if(cur.trim()!=="")flush();
+        n.childNodes.forEach(li=>{ if(li.nodeName.toLowerCase()==="li"){ cur="- "+inlineMd(li); flush(); } }); return; }
+      if(tag==="div"||tag==="p"){
+        if(containsBlock(n)){
+          // block wrapper, so recurse for nested ol/ul/div
+          if(cur!=="") flush();
+          walk(n);
+          if(cur!=="") flush();
+        } else {
+          // simple text block = one line
+          if(cur!=="") flush();
+          cur+=inlineMd(n); flush();
+        }
+        return;
+      }
+      // inline formatting
+      if(tag==="b"||tag==="strong") cur+="**"+inlineMd(n)+"**";
+      else if(tag==="i"||tag==="em") cur+="*"+inlineMd(n)+"*";
+      else if(tag==="a") cur+="["+inlineMd(n)+"]("+(n.getAttribute("href")||"")+")";
+      else if(tag==="code") cur+="`"+inlineMd(n)+"`";
+      else cur+=inlineMd(n);
+    });
+  }
+  walk(el);
+  if(cur!=="") flush();
+  // drop trailing empty lines (artifact of block flushing)
+  while(lines.length && lines[lines.length-1]==="") lines.pop();
+  return lines.join("\n");
+}
+function inlineMd(node){
+  let s="";
+  node.childNodes.forEach(n=>{
+    if(n.nodeType===3){s+=n.nodeValue;return;}
+    if(n.nodeType!==1)return;
+    const tag=n.nodeName.toLowerCase(), inner=inlineMd(n);
+    if(tag==="b"||tag==="strong")s+="**"+inner+"**";
+    else if(tag==="i"||tag==="em")s+="*"+inner+"*";
+    else if(tag==="a")s+="["+inner+"]("+(n.getAttribute("href")||"")+")";
+    else if(tag==="code")s+="`"+inner+"`";
+    else if(tag==="br")s+="";   // br inside an inline context is handled by caller
+    else s+=inner;
+  });
+  return s;
+}
+
+async function boot(t){const a=api();if(a){try{const s=await a.get_state();if(s){STATE=s;if(!selId&&STATE.snippets.length)selId=STATE.snippets[0].id;document.getElementById("tg").classList.toggle("on",STATE.enabled);renderList();renderEditor();return;}}catch(e){}}if((t||0)<80)setTimeout(()=>boot((t||0)+1),100);}
+window.addEventListener("pywebviewready",()=>boot(0));boot(0);
+
+function aboutHtml(){
+  return `
+  <h3>What it does</h3>
+  <p>Type a short <b>trigger</b> anywhere in Windows and it is replaced with a full block
+     of text, formatting intact. Everything runs from the tray icon.</p>
+
+  <h3>Getting started</h3>
+  <ol>
+    <li>Press <b>+</b> to create a snippet.</li>
+    <li>Give it a <b>trigger</b> such as <code>:thanks</code>, and type the message.</li>
+    <li>Press <b>Save changes</b>, then type that trigger in any app.</li>
+  </ol>
+  <p>A trigger fires when you finish typing it. If one trigger is the start of a longer one,
+     the shorter waits so it cannot fire too early.</p>
+
+  <h3>The fields</h3>
+  <table>
+    <tr><td><b>Label</b></td><td>A name for your own reference. Never typed and never expands.</td></tr>
+    <tr><td><b>Triggers</b></td><td>What you type to fire it. Separate several with commas.
+        Two snippets can never share a trigger, so saving is blocked if they do.</td></tr>
+    <tr><td><b>Hotkey</b></td><td>Optional key combination, e.g. <code>ctrl+alt+1</code>.</td></tr>
+    <tr><td><b>Match whole word only</b></td><td>Stops the trigger firing when it is stuck to
+        another word. Useful for short, common-looking triggers.</td></tr>
+    <tr><td><b>Tags</b></td><td>Comma separated. Tags appear as filter chips above the list.</td></tr>
+    <tr><td><b>Message</b></td><td>The text that gets pasted, with formatting.</td></tr>
+  </table>
+
+  <h3>Markers you can put in a message</h3>
+  <table>
+    <tr><td><code>$|</code></td><td>Where the cursor lands after expanding, so you can carry on
+        typing at the right spot.</td></tr>
+    <tr><td><code>{date}</code> <code>{time}</code></td><td>Filled in fresh every time it expands.</td></tr>
+    <tr><td><code>{clip}</code></td><td>Whatever is currently on the clipboard.</td></tr>
+    <tr><td><code>{{Name}}</code></td><td>Asks you to type a value before expanding.</td></tr>
+    <tr><td><code>{{Status|Open,Done}}</code></td><td>Same, but as a dropdown of the options you list.</td></tr>
+  </table>
+  <p>Cancel the pop-up and nothing is inserted, so your document is left untouched.</p>
+
+  <h3>Formatting</h3>
+  <p>Select text and use <b>B</b>, <b>I</b>, <b>Link</b> or <code>&lt;/&gt;</code> for inline code.
+     There are buttons for numbered lists, bulleted lists and a horizontal rule.
+     Pasting into the message box keeps its formatting.</p>
+
+  <h3>Undoing an expansion</h3>
+  <p>Press <b>Backspace</b> immediately after a snippet expands and it is reverted, with your
+     trigger typed back. If anything looks wrong the undo is abandoned rather than risk
+     deleting the wrong text.</p>
+
+  <h3>Managing snippets</h3>
+  <table>
+    <tr><td><b>Search</b></td><td>Matches labels, triggers, tags and message text.</td></tr>
+    <tr><td><b>Import / Export</b></td><td>JSON files, one snippet or all of them. Importing never
+        overwrites: clashing triggers are skipped and reported.</td></tr>
+    <tr><td><b>Backups</b></td><td>Every change is snapshotted first. The tray menu has
+        <b>Restore backup...</b> for the last 20, and restoring is itself undoable.</td></tr>
+    <tr><td><b>Expansion toggle</b></td><td>The switch at the top turns expanding off without
+        quitting the app.</td></tr>
+  </table>
+
+  <h3>Tray menu</h3>
+  <p><b>Edit snippets</b>, <b>Search</b>, enable or disable expansion,
+     <b>Restore backup...</b>, <b>Start with Windows</b>, and <b>Quit</b>.</p>
+
+  <h3>Where your snippets are kept</h3>
+  <p>In <code>%APPDATA%\\SnippetsApp</code>, outside the program folder, so they are never
+     bundled into the app or shared when you send it to someone.</p>`;
+}
+
+function openAbout(){
+  const ov=document.getElementById("aboutOverlay");
+  document.getElementById("aboutDoc").innerHTML=aboutHtml();
+  document.getElementById("aboutVer").textContent=STATE.version?("v"+STATE.version):"";
+  const who=STATE.author||"";
+  if(who) document.getElementById("aboutDoc").insertAdjacentHTML(
+    "beforeend", "<p class=\"credit\">Created by <b>"+esc(who)+"</b></p>");
+  ov.hidden=false;
+}
+function closeAbout(){ document.getElementById("aboutOverlay").hidden=true; }
+
+function renderTagRow(){
+  const row=document.getElementById("tagrow");
+  const tags=[...new Set(STATE.snippets.flatMap(s=>s.tags||[]))].sort();
+  row.innerHTML=tags.map(t=>`<div class="tagfilter ${t===activeTag?'active':''}" data-tag="${esc(t)}">${esc(t)}</div>`).join("");
+  row.querySelectorAll(".tagfilter").forEach(el=>el.onclick=()=>{
+    activeTag=(activeTag===el.dataset.tag)?null:el.dataset.tag; renderTagRow(); renderList();});
+}
+function renderList(){
+  renderTagRow();
+  const box=document.getElementById("items");
+  const list=STATE.snippets.filter(s=>{
+    if(activeTag && !(s.tags||[]).includes(activeTag)) return false;
+    if(!filterText) return true;
+    const h=((s.label||"")+" "+(s.triggers||[]).join(" ")+" "+(s.tags||[]).join(" ")+" "+(s.text||"")).toLowerCase();
+    return h.includes(filterText.toLowerCase());
+  });
+  box.innerHTML=list.map(s=>`<div class="item ${s.id===selId?'sel':''}" data-id="${s.id}">
+    <div class="lab">${esc(s.label||"Untitled")}</div>
+    <div class="trigs">${(s.triggers||[]).map(t=>`<span class="chip">${esc(t)}</span>`).join("")}</div>
+    ${(s.tags||[]).length?`<div class="tags">${s.tags.map(t=>`<span class="tagchip">${esc(t)}</span>`).join("")}</div>`:""}
+    <div class="prev">${esc((s.text||"").replace(/\n/g," ").slice(0,54))}</div></div>`).join("");
+  box.querySelectorAll(".item").forEach(el=>el.onclick=()=>{selId=el.dataset.id;renderList();renderEditor();});
+}
+
+function renderEditor(){
+  const pane=document.getElementById("editorPane");
+  const s=STATE.snippets.find(x=>x.id===selId);
+  if(!s){pane.innerHTML='<div style="margin:auto;color:var(--ink3)">Select or create a snippet</div>';return;}
+  pane.innerHTML=`
+    <div class="field"><label>Label</label><input id="fLabel" value="${esc(s.label||"")}"></div>
+    <div class="row2">
+      <div class="field"><label>Triggers</label><input id="fTrig" value="${esc((s.triggers||[]).join(", "))}" placeholder=":ack, :acknowledge">
+        <div class="fielderr" id="trigErr"></div></div>
+      <div class="field"><label>Hotkey</label><input id="fHot" value="${esc(s.hotkey||"")}" placeholder="ctrl+alt+1"></div>
+    </div>
+    <label class="checkrow"><input type="checkbox" id="fWordOnly" ${s.word_only?"checked":""}>
+      Match whole word only <span class="checkhint">won't fire mid-word, e.g. inside "other"</span></label>
+    <div class="field"><label>Tags</label><input id="fTags" value="${esc((s.tags||[]).join(", "))}" placeholder="email, support"></div>
+    <div class="field"><label>Message</label>
+      <div class="toolbar">
+        <button class="tb" data-c="bold"><b>B</b></button>
+        <button class="tb" data-c="italic"><i>I</i></button>
+        <button class="tb" id="lnk">🔗 Link</button>
+        <button class="tb" id="codeBtn"><code>&lt;/&gt;</code></button>
+        <span class="tbsep"></span>
+        <button class="tb" data-c="insertOrderedList">1. List</button>
+        <button class="tb" data-c="insertUnorderedList">• List</button>
+        <button class="tb" id="hrBtn">─ Rule</button>
+        <span class="tbsep"></span>
+        <button class="tb" data-i="{date}">{date}</button>
+        <button class="tb" data-i="$|">⎸cursor</button>
+        <button class="tb" id="fieldBtn">+ Field</button>
+      </div>
+      <div class="rt" id="fText" contenteditable="true" data-ph="Type your message…"></div>
+      <div class="hintline">Select text then <b>B</b> / <b>Link</b> / <code>&lt;/&gt;</code> code. <code>$|</code> cursor · <code>{date}</code> · <code>{{field}}</code> asks for a value (add <code>|a,b,c</code> for a dropdown) · paste keeps formatting.</div>
+    </div>
+    <div class="actions">
+      <button class="btn danger" id="del">Delete</button>
+      <button class="btn" id="exportOne">Export</button>
+      <div style="flex:1"></div>
+      <button class="btn primary" id="save">Save changes</button>
+    </div>`;
+  const ft=document.getElementById("fText");
+  ft.innerHTML=mdToHtml(s.text||"");
+  const upd=()=>{s.label=document.getElementById("fLabel").value;
+    s.triggers=document.getElementById("fTrig").value.split(",").map(x=>x.trim()).filter(Boolean);
+    s.hotkey=document.getElementById("fHot").value.trim();
+    s.tags=document.getElementById("fTags").value.split(",").map(x=>x.trim()).filter(Boolean);
+    s.word_only=document.getElementById("fWordOnly").checked;
+    s.text=htmlToMd(ft);renderList();checkDuplicates();};
+  checkDuplicates();
+  ["fLabel","fTrig","fHot","fTags"].forEach(id=>document.getElementById(id).addEventListener("input",upd));
+  document.getElementById("fWordOnly").addEventListener("change",upd);
+  ft.addEventListener("input",upd); ft.addEventListener("blur",upd);
+  ft.addEventListener("paste",e=>{const h=e.clipboardData&&e.clipboardData.getData("text/html");if(h){e.preventDefault();document.execCommand("insertHTML",false,sanitize(h));setTimeout(upd,0);}});
+  pane.querySelectorAll(".tb[data-c]").forEach(b=>b.onmousedown=e=>{e.preventDefault();document.execCommand(b.dataset.c,false,null);ft.focus();upd();});
+  pane.querySelectorAll(".tb[data-i]").forEach(b=>b.onmousedown=e=>{e.preventDefault();ft.focus();document.execCommand("insertText",false,b.dataset.i);upd();});
+  document.getElementById("lnk").onmousedown=e=>{e.preventDefault();ft.focus();const u=prompt("Link URL:","https://");if(u)document.execCommand("createLink",false,u);upd();};
+  document.getElementById("codeBtn").onmousedown=e=>{e.preventDefault();ft.focus();wrapSelectionWithTag("code");upd();};
+  document.getElementById("hrBtn").onmousedown=e=>{e.preventDefault();ft.focus();document.execCommand("insertHTML",false,"<hr>");upd();};
+  document.getElementById("fieldBtn").onmousedown=e=>{e.preventDefault();ft.focus();
+    const label=prompt("Field label (shown when filling in):","Name");
+    if(!label){upd();return;}
+    // Optional comma-separated options turn the text box into a dropdown.
+    const opts=prompt("Dropdown options for \""+label+"\", separated by commas.\nLeave blank for a free text box.","");
+    const clean=(opts||"").split(",").map(x=>x.trim()).filter(Boolean);
+    document.execCommand("insertText",false,clean.length?"{{"+label+"|"+clean.join(",")+"}}":"{{"+label+"}}");
+    upd();};
+  document.getElementById("save").onclick=save;
+  document.getElementById("del").onclick=async()=>{STATE.snippets=STATE.snippets.filter(x=>x.id!==selId);selId=STATE.snippets.length?STATE.snippets[0].id:null;await save();renderList();renderEditor();};
+  document.getElementById("exportOne").onclick=async()=>{const a=api();if(!a)return;try{const r=await a.export_snippet(selId);if(r&&r.ok)toast("Exported");else if(!(r&&r.cancelled))toast((r&&r.error)||"Export failed");}catch(e){toast("Error");}};
+}
+function sanitize(html){const t=document.createElement("div");t.innerHTML=html;
+  t.querySelectorAll('[style*="font-weight"]').forEach(el=>{const fw=el.style.fontWeight;if(fw==="bold"||parseInt(fw)>=600){const b=document.createElement("b");b.innerHTML=el.innerHTML;el.replaceWith(b);}});
+  function walk(node){let o="";node.childNodes.forEach(n=>{if(n.nodeType===3){o+=esc(n.nodeValue);return;}if(n.nodeType!==1)return;const tag=n.nodeName.toLowerCase(),inner=walk(n);
+    if(tag==="b"||tag==="strong")o+="<b>"+inner+"</b>";else if(tag==="i"||tag==="em")o+="<i>"+inner+"</i>";
+    else if(tag==="a")o+='<a href="'+(n.getAttribute("href")||"")+'">'+inner+"</a>";
+    else if(tag==="ol"){const st=parseInt(n.getAttribute&&n.getAttribute("start"),10);
+      o+=(st>1?'<ol start="'+st+'">':"<ol>")+inner+"</ol>";}else if(tag==="ul")o+="<ul>"+inner+"</ul>";else if(tag==="li")o+="<li>"+inner+"</li>";
+    else if(tag==="code")o+="<code>"+inner+"</code>";else if(tag==="hr")o+="<hr>";
+    else if(tag==="br")o+="<br>";else if(tag==="p"||tag==="div")o+="<div>"+inner+"</div>";else o+=inner;});return o;}
+  return walk(t);
+}
+
+function findDuplicateTrigger(snippets){
+  // exact/case-sensitive, mirroring the runtime matcher exactly -- a
+  // case-insensitive check here could flag two triggers as "duplicate" that
+  // the app itself would treat as genuinely different.
+  const seen={};
+  for(const s of snippets){
+    for(const raw of (s.triggers||[])){
+      const t=(raw||"").trim();
+      if(!t) continue;
+      if(seen[t]) return {trigger:t, other:seen[t]};
+      seen[t]=s.label||"Untitled";
+    }
+  }
+  return null;
+}
+function checkDuplicates(){
+  const err=document.getElementById("trigErr"), btn=document.getElementById("save");
+  if(!err||!btn) return;
+  const dup=findDuplicateTrigger(STATE.snippets);
+  if(dup){ err.textContent=`"${dup.trigger}" is already used by "${dup.other}"`; btn.disabled=true; }
+  else { err.textContent=""; btn.disabled=false; }
+}
+async function save(){const a=api();if(!a)return;try{const r=await a.save_snippets(STATE.snippets);toast(r&&r.ok?"Saved":(r&&r.error)||"Save failed");}catch(e){toast("Error");}}
+function toast(m,ms){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),ms||1500);}
+
+// ---- About / help sheet
+document.getElementById("aboutBtn").onclick=openAbout;
+document.getElementById("aboutClose").onclick=closeAbout;
+document.getElementById("aboutOverlay").onclick=e=>{ if(e.target.id==="aboutOverlay") closeAbout(); };
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeAbout(); });
+
+document.getElementById("add").onclick=()=>{const id="s"+Date.now();STATE.snippets.unshift({id,triggers:[],hotkey:"",label:"New snippet",text:"",tags:[],word_only:false});selId=id;renderList();renderEditor();const f=document.getElementById("fLabel");if(f){f.focus();f.select();}};
+document.getElementById("filter").addEventListener("input",e=>{filterText=e.target.value;renderList();});
+document.getElementById("exportAllBtn").onclick=async()=>{const a=api();if(!a)return;try{const r=await a.export_all();if(r&&r.ok)toast("Exported");else if(!(r&&r.cancelled))toast((r&&r.error)||"Export failed");}catch(e){toast("Error");}};
+document.getElementById("importBtn").onclick=async()=>{const a=api();if(!a)return;try{
+  const r=await a.import_snippets();
+  if(r&&r.ok){const s=await a.get_state();if(s){STATE=s;renderList();renderEditor();}toast(r.message||"Imported",4000);}
+  else if(!(r&&r.cancelled)) toast((r&&r.error)||"Import failed");
+}catch(e){toast("Error");}};
+document.getElementById("tg").onclick=async()=>{STATE.enabled=!STATE.enabled;document.getElementById("tg").classList.toggle("on",STATE.enabled);const a=api();if(a)try{await a.set_enabled(STATE.enabled);}catch(e){}};
+</script>
+</body>
+</html>
