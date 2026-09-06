@@ -29,7 +29,7 @@ try: import uiautomation as _uia
 except Exception: _uia = None
 
 DEFAULTS = {
-    "enabled": True, "date_format": "%d %B %Y",
+    "enabled": True, "date_format": "%d %B %Y", "theme": "dark",
     # First-run examples. Each one demonstrates a DIFFERENT feature, so a new
     # user can see what the app does without reading any docs: plain text, the
     # $| cursor marker, {date}, a {{field}} prompt, a {{field|a,b}} dropdown,
@@ -88,6 +88,7 @@ class Store:
         present instead of half-initialised in memory until the next restart."""
         self.data.setdefault("enabled",True)
         self.data.setdefault("date_format","%d %B %Y")
+        self.data.setdefault("theme","dark")     # dark unless the user says otherwise
         if "snippets" not in self.data:
             # deep copy: sharing the module-level list would let one store's
             # edits leak into DEFAULTS and into any other store created later

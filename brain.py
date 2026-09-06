@@ -19,16 +19,17 @@ run_detached(), the three subsystems no longer fight over a thread.
 SETUP: pip install keyboard pyperclip pystray pillow pywebview
 Run:   python brain.py
 """
-import os, sys, time, json, threading, subprocess, ctypes
+import os, sys, time, json, threading, subprocess, ctypes, webbrowser, platform
 import snip_core as core
 import updater
+import feedback
 from snip_core import log, APP_NAME, SEARCH_HOTKEY, DATA_FILE
 
 # ---------------------------------------------------------------------------
 # Shown in the About sheet (the ? button in the editor). Single source for
 # the credit and version -- nothing else hard-codes either.
 AUTHOR  = "Vinay Prasad"
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 # ---------------------------------------------------------------------------
 
 MAIN_HOTKEY="ctrl+alt+n"
@@ -336,6 +337,7 @@ class EditorApi:
     def get_state(self):
         store.load()
         return {"snippets":store.data.get("snippets",[]),"enabled":store.data.get("enabled",True),
+                "theme":store.data.get("theme","dark"),
                 "author":AUTHOR,"version":VERSION}
     def save_snippets(self,snippets):
         try:
@@ -351,6 +353,11 @@ class EditorApi:
                 return {"ok":False,"error":'"%s" is already used by "%s"'%(dup_trig,dup_label)}
             store.data["snippets"]=clean; return {"ok":store.save()}
         except Exception as e: log("save err:",e); return {"ok":False}
+    def set_theme(self,theme):
+        store.load()
+        store.data["theme"] = "light" if theme == "light" else "dark"
+        return {"ok":store.save()}
+
     def set_enabled(self,on):
         store.data["enabled"]=bool(on); store.save(); return {"ok":True}
 
@@ -602,9 +609,113 @@ def _fillin_popup(specs):
     win.mainloop()
     return result["values"]
 
+def open_feedback(icon=None, item=None):
+    threading.Thread(target=_feedback_popup, daemon=True).start()
+
+def _feedback_popup():
+    """Collect a bug report or suggestion and hand it to the browser as a
+    pre-filled issue.
+
+    The name box is visible, pre-filled and editable, and the person can clear
+    it. Sending opens the report in their browser so they can read exactly
+    what is going before they submit it. Nothing is collected that they have
+    not been shown."""
+    try:
+        import tkinter as tk
+        from tkinter import ttk, messagebox
+    except Exception as e:
+        log("tk missing:", e); return
+    theme = store.data.get("theme", "dark")
+    bg, card, ink, dim = (("#1a1330", "#2a2145", "#e8e2f5", "#a99fc4") if theme != "light"
+                          else ("#f3f4f7", "#ffffff", "#15171c", "#525a67"))
+    win = tk.Tk(); win.title("Send feedback"); win.geometry("520x460")
+    win.configure(bg=bg); win.attributes("-topmost", True)
+
+    tk.Label(win, text="Send feedback", bg=bg, fg=ink,
+             font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=16, pady=(16, 2))
+    tk.Label(win, text="Found a bug or have an idea? It goes to the project's issue page.",
+             bg=bg, fg=dim, font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 12))
+
+    row = tk.Frame(win, bg=bg); row.pack(fill="x", padx=16, pady=(0, 8))
+    tk.Label(row, text="Type", bg=bg, fg=dim, font=("Segoe UI", 9),
+             width=10, anchor="w").pack(side="left")
+    kind = tk.StringVar(value="Bug")
+    style = ttk.Style()
+    try: style.theme_use("clam")
+    except Exception: pass
+    style.configure("F.TCombobox", fieldbackground=card, background=card,
+                    foreground=ink, arrowcolor=dim, borderwidth=0)
+    ttk.Combobox(row, textvariable=kind, values=["Bug", "Suggestion", "Question"],
+                 state="readonly", style="F.TCombobox",
+                 font=("Segoe UI", 10)).pack(side="left", fill="x", expand=True)
+
+    row2 = tk.Frame(win, bg=bg); row2.pack(fill="x", padx=16, pady=(0, 4))
+    tk.Label(row2, text="Your name", bg=bg, fg=dim, font=("Segoe UI", 9),
+             width=10, anchor="w").pack(side="left")
+    name = tk.Entry(row2, bg=card, fg=ink, insertbackground=ink, relief="flat",
+                    font=("Segoe UI", 10))
+    name.insert(0, os.environ.get("USERNAME", ""))
+    name.pack(side="left", fill="x", expand=True)
+    tk.Label(win, text="Included so replies can reach you. Clear it to leave it out.",
+             bg=bg, fg=dim, font=("Segoe UI", 8)).pack(anchor="w", padx=(96, 16), pady=(0, 10))
+
+    tk.Label(win, text="Message", bg=bg, fg=dim, font=("Segoe UI", 9)).pack(anchor="w", padx=16)
+    txt = tk.Text(win, height=9, bg=card, fg=ink, insertbackground=ink, relief="flat",
+                  font=("Segoe UI", 10), wrap="word")
+    txt.pack(fill="both", expand=True, padx=16, pady=(4, 8))
+
+    tk.Label(win, text="Opens in your browser so you can check it before sending. "
+                       "Your app version and Windows version are included.",
+             bg=bg, fg=dim, font=("Segoe UI", 8), wraplength=470,
+             justify="left").pack(anchor="w", padx=16, pady=(0, 8))
+
+    def send():
+        body = txt.get("1.0", "end").strip()
+        if not body:
+            messagebox.showinfo("Send feedback", "Please write a message first.", parent=win)
+            return
+        try:
+            url = feedback.build_url(kind.get(), body, name=name.get(),
+                                     version=VERSION, system=platform.platform())
+            webbrowser.open(url)
+            log("feedback opened in browser (%s)" % kind.get())
+            win.destroy()
+        except Exception as e:
+            log("feedback failed:", e)
+            messagebox.showerror("Send feedback", str(e), parent=win)
+
+    btns = tk.Frame(win, bg=bg); btns.pack(fill="x", padx=16, pady=(0, 16))
+    tk.Button(btns, text="Cancel", command=win.destroy, relief="flat",
+              bg=card, fg=ink, font=("Segoe UI", 10), padx=14).pack(side="right")
+    tk.Button(btns, text="Review and send", command=send, relief="flat",
+              bg="#7c5cff", fg="#ffffff", font=("Segoe UI", 10, "bold"),
+              padx=14).pack(side="right", padx=(0, 8))
+    win.bind("<Escape>", lambda e: win.destroy())
+    _force_foreground(win)
+    txt.focus_force()
+    win.mainloop()
+
 # ---- run at Windows startup: a shortcut in the Startup folder, no admin/registry ----
 _STARTUP_DIR=os.path.join(os.environ.get("APPDATA",""),"Microsoft","Windows","Start Menu","Programs","Startup")
 _SHORTCUT_PATH=os.path.join(_STARTUP_DIR,APP_NAME+".lnk")
+
+def _enable_autostart_on_first_run():
+    """Turn on Start with Windows the first time the app is ever launched.
+
+    A snippet expander is only useful if it is running, and a tray app that
+    has to be started by hand every morning gets forgotten. Recorded in the
+    settings rather than checked against the shortcut itself, so a user who
+    deliberately turns it off does not get it switched back on at the next
+    start."""
+    try:
+        if store.data.get("first_run_done"): return
+        if not _autostart_enabled():
+            _set_autostart(True)
+            log("first run: enabled Start with Windows")
+        store.data["first_run_done"] = True
+        store.save()
+    except Exception as e:
+        log("first-run autostart failed:", e)
 
 def _autostart_enabled():
     return os.path.exists(_SHORTCUT_PATH)
@@ -751,6 +862,7 @@ def start_tray():
         pystray.MenuItem("Search", open_search),
         pystray.MenuItem(lambda i:("Disable" if store.data.get("enabled",True) else "Enable")+" expansion", _toggle),
         pystray.MenuItem("Restore backup...", open_restore),
+        pystray.MenuItem("Send feedback...", open_feedback),
         pystray.MenuItem(_update_label, _menu_update),
         pystray.MenuItem("Start with Windows", _toggle_autostart, checked=lambda i: _autostart_enabled()),
         pystray.MenuItem("Quit", _quit))
@@ -770,6 +882,7 @@ def main():
         except Exception: pass
         return
     updater.cleanup_old()          # delete the previous exe left by an update
+    _enable_autostart_on_first_run()
     start_hook()
     log("Ready. %d snippet(s). v%s"%(len(store.data.get("snippets",[])), VERSION))
     if pystray is not None: start_tray()

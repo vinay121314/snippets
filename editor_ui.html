@@ -1,15 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Snippets</title>
 <style>
 /* ============================================================
-   Clean, flat UI with a single accent. Follows the OS theme via
-   prefers-color-scheme: every colour is a token defined once for light
-   and overridden once for dark, so no rule hard-codes a colour and the
-   two palettes cannot drift apart.
+   Clean, flat UI with a single accent. Dark by default, switchable from
+   the title bar and remembered between sessions. Every colour is a token
+   defined once for light and overridden once for dark, so no rule
+   hard-codes a colour and the two palettes cannot drift apart.
+
+   data-theme is set on <html> in the markup rather than by script, so the
+   window never paints light for a frame before the setting loads.
 
    Deliberately no backdrop-filter and no remote webfont. Translucent
    panels over a gradient hurt legibility for the long formatted text
@@ -17,7 +20,7 @@
    fails outright on a locked-down machine.
    ============================================================ */
 :root{
-  color-scheme: light dark;
+  color-scheme: light;
   --bg:#f3f4f7;
   --surface:#ffffff;
   --surface-2:#f7f8fa;
@@ -39,28 +42,28 @@
   --radius:12px; --radius-sm:9px;
   --mono:"Cascadia Code",Consolas,"SF Mono",monospace;
 }
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#0e1014;
-    --surface:#16191f;
-    --surface-2:#1c2028;
-    --surface-3:#232833;
-    --border:#262b34;
-    --border-strong:#333945;
-    --ink:#e9ebf0;
-    --ink2:#a6aebc;
-    --ink3:#737b8a;
-    --accent:#9b87ff;
-    --accent-ink:#15121f;
-    --accent-soft:rgba(155,135,255,.15);
-    --accent-line:rgba(155,135,255,.34);
-    --danger:#ff6b85;
-    --danger-soft:rgba(255,107,133,.13);
-    --ok:#5fe3bd;
-    --ok-soft:#11342c;
-    --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28);
-  }
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#0e1014;
+  --surface:#16191f;
+  --surface-2:#1c2028;
+  --surface-3:#232833;
+  --border:#262b34;
+  --border-strong:#333945;
+  --ink:#e9ebf0;
+  --ink2:#a6aebc;
+  --ink3:#737b8a;
+  --accent:#9b87ff;
+  --accent-ink:#15121f;
+  --accent-soft:rgba(155,135,255,.15);
+  --accent-line:rgba(155,135,255,.34);
+  --danger:#ff6b85;
+  --danger-soft:rgba(255,107,133,.13);
+  --ok:#5fe3bd;
+  --ok-soft:#11342c;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28);
 }
+
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden}
 body{
@@ -206,13 +209,14 @@ body{
   display:flex;flex-direction:column;overflow:hidden}
 .sheet header{display:flex;align-items:center;gap:12px;padding:18px 22px;
   border-bottom:1px solid var(--border)}
+.sheet header .titles{display:flex;flex-direction:column;gap:2px}
 .sheet header .t{font-size:16px;font-weight:700;letter-spacing:-.2px}
-.sheet header .v{font-size:11px;color:var(--ink3);font-family:var(--mono)}
+.sheet header .v{font-size:11px;color:var(--ink3);font-family:var(--mono);font-weight:400}
+.sheet header .by{font-size:11.5px;color:var(--ink3)}
+.sheet header .by b{color:var(--ink2);font-weight:600}
+#themeBtn{font-size:12px}
 .sheet .scroll{overflow-y:auto;padding:20px 22px 8px}
 .sheet .scroll{padding-bottom:18px}
-.doc .credit{margin:22px 0 0;padding-top:14px;border-top:1px solid var(--border);
-  font-size:12px;color:var(--ink3)}
-.doc .credit b{color:var(--ink2);font-weight:600}
 
 .doc h3{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--ink3);
   font-weight:700;margin:20px 0 9px}
@@ -236,6 +240,7 @@ body{
     <div class="brand"><span class="dot">✦</span> Snippets</div>
     <div class="sp"></div>
     <div class="switch">Expansion <div class="toggle on" id="tg"><div class="kn"></div></div></div>
+    <button class="iconbtn" id="themeBtn" title="Switch between dark and light"></button>
     <button class="iconbtn" id="aboutBtn" title="About and help">?</button>
   </div>
   <div class="body">
@@ -257,7 +262,10 @@ body{
 <div class="overlay" id="aboutOverlay" hidden>
   <div class="sheet">
     <header>
-      <span class="t">Snippets</span><span class="v" id="aboutVer"></span>
+      <div class="titles">
+        <div class="t">Snippets <span class="v" id="aboutVer"></span></div>
+        <div class="by" id="aboutBy"></div>
+      </div>
       <div style="flex:1"></div>
       <button class="iconbtn" id="aboutClose" title="Close">&times;</button>
     </header>
@@ -374,7 +382,8 @@ function inlineMd(node){
   return s;
 }
 
-async function boot(t){const a=api();if(a){try{const s=await a.get_state();if(s){STATE=s;if(!selId&&STATE.snippets.length)selId=STATE.snippets[0].id;document.getElementById("tg").classList.toggle("on",STATE.enabled);renderList();renderEditor();return;}}catch(e){}}if((t||0)<80)setTimeout(()=>boot((t||0)+1),100);}
+async function boot(t){const a=api();if(a){try{const s=await a.get_state();if(s){STATE=s;if(!selId&&STATE.snippets.length)selId=STATE.snippets[0].id;document.getElementById("tg").classList.toggle("on",STATE.enabled);applyTheme(STATE.theme);renderList();renderEditor();return;}}catch(e){}}if((t||0)<80)setTimeout(()=>boot((t||0)+1),100);}
+applyTheme("dark");
 window.addEventListener("pywebviewready",()=>boot(0));boot(0);
 
 function aboutHtml(){
@@ -436,9 +445,28 @@ function aboutHtml(){
         quitting the app.</td></tr>
   </table>
 
+  <h3>Appearance</h3>
+  <p>The app is dark by default. The sun and moon button at the top right switches
+     between dark and light, and your choice is remembered.</p>
+
+  <h3>Starting with Windows</h3>
+  <p>Switched on automatically the first time you run the app, so it is always
+     there when you need it. Turn it off any time from the tray menu with
+     <b>Start with Windows</b>, and it will stay off.</p>
+
+  <h3>Sending feedback</h3>
+  <p>Found a bug or have an idea? Pick <b>Send feedback...</b> from the tray menu,
+     write your message and choose <b>Review and send</b>. It opens the report in
+     your browser so you can read exactly what is being sent, and change or cancel
+     it, before you submit.</p>
+  <p>Your name is filled in so a reply can reach you. Clear the box if you would
+     rather not include it. Your app version and Windows version are included too,
+     because almost every bug report needs them.</p>
+
   <h3>Tray menu</h3>
   <p><b>Edit snippets</b>, <b>Search</b>, enable or disable expansion,
-     <b>Restore backup...</b>, <b>Start with Windows</b>, and <b>Quit</b>.</p>
+     <b>Restore backup...</b>, <b>Send feedback...</b>, <b>Check for updates</b>,
+     <b>Start with Windows</b>, and <b>Quit</b>.</p>
 
   <h3>Updates</h3>
   <p>The app checks for a new version shortly after it starts, and every six hours
@@ -456,13 +484,31 @@ function aboutHtml(){
      bundled into the app or shared when you send it to someone.</p>`;
 }
 
+// ---- theme -----------------------------------------------------------
+// Dark unless the user has chosen otherwise. The choice is stored with the
+// rest of the settings so it survives a restart, and applied by setting one
+// attribute on <html>, which every colour token hangs off.
+function applyTheme(theme){
+  const dark = (theme || "dark") !== "light";
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  const b = document.getElementById("themeBtn");
+  if(b){ b.textContent = dark ? "☀" : "☽";
+         b.title = dark ? "Switch to light theme" : "Switch to dark theme"; }
+}
+function toggleTheme(){
+  const dark = document.documentElement.getAttribute("data-theme") !== "light";
+  const next = dark ? "light" : "dark";
+  STATE.theme = next;
+  applyTheme(next);
+  const a = api(); if(a && a.set_theme) a.set_theme(next);
+}
+
 function openAbout(){
   const ov=document.getElementById("aboutOverlay");
   document.getElementById("aboutDoc").innerHTML=aboutHtml();
   document.getElementById("aboutVer").textContent=STATE.version?("v"+STATE.version):"";
   const who=STATE.author||"";
-  if(who) document.getElementById("aboutDoc").insertAdjacentHTML(
-    "beforeend", "<p class=\"credit\">Created by <b>"+esc(who)+"</b></p>");
+  document.getElementById("aboutBy").innerHTML=who?("Created by <b>"+esc(who)+"</b>"):"";
   ov.hidden=false;
 }
 function closeAbout(){ document.getElementById("aboutOverlay").hidden=true; }
@@ -597,6 +643,7 @@ async function save(){const a=api();if(!a)return;try{const r=await a.save_snippe
 function toast(m,ms){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),ms||1500);}
 
 // ---- About / help sheet
+document.getElementById("themeBtn").onclick=toggleTheme;
 document.getElementById("aboutBtn").onclick=openAbout;
 document.getElementById("aboutClose").onclick=closeAbout;
 document.getElementById("aboutOverlay").onclick=e=>{ if(e.target.id==="aboutOverlay") closeAbout(); };

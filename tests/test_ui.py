@@ -36,6 +36,8 @@ def run(win):
             "toolbar buttons":  win.evaluate_js("document.querySelectorAll('.tb').length") >= 9,
             "message rendered": "<b>bold</b>" in (win.evaluate_js("document.getElementById('fText').innerHTML") or ""),
             "ol present":       "<ol" in (win.evaluate_js("document.getElementById('fText').innerHTML") or ""),
+            "defaults to dark":   win.evaluate_js("document.documentElement.getAttribute('data-theme')") == "dark",
+            "theme button exists": win.evaluate_js("!!document.getElementById('themeBtn')"),
             "no glass blur":    (win.evaluate_js("getComputedStyle(document.querySelector('.topbar')).backdropFilter") or "none") == "none",
             "body has bg":      (win.evaluate_js("getComputedStyle(document.body).backgroundColor") or "") not in ("", "rgba(0, 0, 0, 0)"),
         }
@@ -46,15 +48,23 @@ def run(win):
         win.evaluate_js("openAbout()"); time.sleep(0.4)
         about = {
             "about opens":       win.evaluate_js("document.getElementById('aboutOverlay').hidden") is False,
-            "about has name":    "Test Author" in (win.evaluate_js("document.getElementById('aboutDoc').innerText") or ""),
+            "about has name":    "Test Author" in (win.evaluate_js("document.getElementById('aboutBy').innerText") or ""),
             "about has version": "9.9.9" in (win.evaluate_js("document.getElementById('aboutVer').innerText") or ""),
-            "credit is last line":  (win.evaluate_js("document.querySelector('#aboutDoc .credit') === document.getElementById('aboutDoc').lastElementChild")),
+            "name under app name": win.evaluate_js("!!document.querySelector('.sheet header .titles .by')"),
             "no footer bar":       win.evaluate_js("!document.querySelector('.sheet footer')"),
             "about has sections": (win.evaluate_js("document.querySelectorAll('#aboutDoc h3').length") or 0) >= 7,
             "about explains $|": "$|" in (win.evaluate_js("document.getElementById('aboutDoc').innerText") or ""),
             "about explains undo": "Backspace" in (win.evaluate_js("document.getElementById('aboutDoc').innerText") or ""),
         }
         win.evaluate_js("closeAbout()"); time.sleep(0.25)
+        # switching theme must actually repaint, not just flip an attribute
+        dark_bg = win.evaluate_js("getComputedStyle(document.body).backgroundColor")
+        win.evaluate_js("toggleTheme()"); time.sleep(0.35)
+        about["switches to light"] = win.evaluate_js("document.documentElement.getAttribute('data-theme')") == "light"
+        light_bg = win.evaluate_js("getComputedStyle(document.body).backgroundColor")
+        about["light repaints"] = light_bg != dark_bg
+        win.evaluate_js("toggleTheme()"); time.sleep(0.35)
+        about["switches back to dark"] = win.evaluate_js("getComputedStyle(document.body).backgroundColor") == dark_bg
         about["about closes"] = win.evaluate_js("document.getElementById('aboutOverlay').hidden") is True
         for k, v in about.items():
             print("  %-20s %s" % (k, "PASS" if v else "FAIL"), flush=True)

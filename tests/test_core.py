@@ -204,6 +204,13 @@ class StoreRoundTrip(unittest.TestCase):
         self.assertIs(s["word_only"], False)
         self.assertEqual(s["scope"], "personal")
 
+    def test_theme_defaults_to_dark(self):
+        self.assertEqual(core.Store(self.path).data["theme"], "dark")
+
+    def test_existing_theme_choice_is_kept(self):
+        st = core.Store(self.path); st.data["theme"] = "light"; st.save()
+        self.assertEqual(core.Store(self.path).data["theme"], "light")
+
     def test_save_then_load_preserves_content(self):
         st = core.Store(self.path)
         st.data["snippets"] = [{"id": "1", "triggers": [":x"], "label": "L",

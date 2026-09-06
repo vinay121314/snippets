@@ -30,7 +30,11 @@ Single portable `.exe`. No installer, no admin rights, no runtime to install.
 - **Import and export**: JSON, one snippet or all of them.
 - **Automatic updates**: the app checks for a new version and can install it
   and restart itself, so there is nothing to download by hand.
-- **Follows your Windows light and dark theme.**
+- **Dark by default**, with a light theme a click away in the title bar.
+- **Feedback built in**: report a bug or suggest something from the tray menu.
+  It opens a pre-filled report in the browser so you can see exactly what is
+  being sent before you submit it.
+- **Starts with Windows** from first run, and can be switched off in the tray.
 
 ## Install
 
@@ -38,7 +42,11 @@ Download `Snippets.exe` from [Releases](../../releases) and run it. It sits in
 the system tray.
 
 Right-click the tray icon for **Edit snippets**, **Search**, **Restore
-backup...**, **Start with Windows**, and to enable or disable expansion.
+backup...**, **Send feedback...**, **Check for updates**, **Start with
+Windows**, and to enable or disable expansion.
+
+It adds itself to Windows startup the first time it runs. Turn that off from
+the tray menu if you would rather it did not.
 
 An **About and help** page is built into the editor, behind the `?` button in
 the top bar. It explains every field and marker.
@@ -90,6 +98,7 @@ learn what is available and to verify the download.
 ```
 python tests/test_core.py     fast, headless, no GUI (about 0.2s)
 python tests/test_updater.py  update logic, including a real download and swap
+python tests/test_feedback.py the feedback report builder
 python tests/test_live.py     end-to-end against real editing surfaces
 python tests/test_ui.py       renders the editor and checks it wired up
 ```

@@ -23,12 +23,16 @@ if exist build (
 )
 
 echo Running tests...
-python tests\test_core.py
-if errorlevel 1 (
-  echo.
-  echo ERROR: tests failed - not building.
-  pause
-  exit /b 1
+rem Headless suites only. test_live and test_ui need an interactive desktop,
+rem so they are run by hand rather than gating the build.
+for %%T in (test_core test_updater test_feedback) do (
+  python tests\%%T.py
+  if errorlevel 1 (
+    echo.
+    echo ERROR: %%T failed - not building.
+    pause
+    exit /b 1
+  )
 )
 
 echo Building Snippets ^(single process: tray + hotkeys + editor^)...
