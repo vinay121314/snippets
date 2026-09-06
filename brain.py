@@ -29,7 +29,7 @@ from snip_core import log, APP_NAME, SEARCH_HOTKEY, DATA_FILE
 # Shown in the About sheet (the ? button in the editor). Single source for
 # the credit and version -- nothing else hard-codes either.
 AUTHOR  = "Vinay Prasad"
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 # ---------------------------------------------------------------------------
 
 MAIN_HOTKEY="ctrl+alt+n"
@@ -477,6 +477,10 @@ def _restore_popup():
         _force_foreground(win); win.mainloop(); return
     tk.Label(win,text="Your current snippets are backed up before restoring.",bg="#1a1330",
              fg="#a99fc4",font=("Segoe UI",9)).pack(anchor="w",padx=14,pady=(0,8))
+    # Reserve the buttons' space first. Packed after a widget with
+    # expand=True they are never mapped, which reads as a dialog with no
+    # buttons at all.
+    row=tk.Frame(win,bg="#1a1330"); row.pack(side="bottom",fill="x",padx=14,pady=(0,14))
     lb=tk.Listbox(win,bg="#150f28",fg="#e8e2f5",relief="flat",font=("Segoe UI",10),
                   selectbackground="#7c5cff",highlightthickness=0,activestyle="none")
     lb.pack(fill="both",expand=True,padx=14,pady=(0,10))
@@ -501,7 +505,6 @@ def _restore_popup():
             messagebox.showinfo("Restored","Restored %d snippets."%cnt,parent=win); win.destroy()
         except Exception as e:
             log("restore failed:",e); messagebox.showerror("Restore failed",str(e),parent=win)
-    row=tk.Frame(win,bg="#1a1330"); row.pack(fill="x",padx=14,pady=(0,14))
     tk.Button(row,text="Cancel",command=win.destroy,relief="flat",bg="#2a2145",fg="#e8e2f5",
               font=("Segoe UI",10),padx=14).pack(side="right")
     tk.Button(row,text="Restore",command=do_restore,relief="flat",bg="#7c5cff",fg="#fff",
@@ -609,6 +612,24 @@ def _fillin_popup(specs):
     win.mainloop()
     return result["values"]
 
+def _open_in_browser(url):
+    """os.startfile first. webbrowser can fail in a windowed build with no
+    console attached, since some of its fallbacks expect one; os.startfile
+    hands the URL straight to the shell, which is what the shell does with a
+    link anywhere else in Windows."""
+    try:
+        os.startfile(url); return True
+    except Exception as e:
+        log("startfile failed, trying webbrowser:", e)
+    return webbrowser.open(url)
+
+def _centre(win, w, h):
+    """Put the window in the middle of the screen. A dialog that opens partly
+    off-screen is indistinguishable from one that did not open at all."""
+    win.update_idletasks()
+    sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+    win.geometry("%dx%d+%d+%d" % (w, h, max(0, (sw - w) // 2), max(0, (sh - h) // 3)))
+
 def open_feedback(icon=None, item=None):
     threading.Thread(target=_feedback_popup, daemon=True).start()
 
@@ -628,8 +649,10 @@ def _feedback_popup():
     theme = store.data.get("theme", "dark")
     bg, card, ink, dim = (("#1a1330", "#2a2145", "#e8e2f5", "#a99fc4") if theme != "light"
                           else ("#f3f4f7", "#ffffff", "#15171c", "#525a67"))
-    win = tk.Tk(); win.title("Send feedback"); win.geometry("520x460")
+    win = tk.Tk(); win.title("Send feedback")
     win.configure(bg=bg); win.attributes("-topmost", True)
+    win.minsize(460, 380)
+    _centre(win, 520, 470)
 
     tk.Label(win, text="Send feedback", bg=bg, fg=ink,
              font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=16, pady=(16, 2))
@@ -660,14 +683,6 @@ def _feedback_popup():
              bg=bg, fg=dim, font=("Segoe UI", 8)).pack(anchor="w", padx=(96, 16), pady=(0, 10))
 
     tk.Label(win, text="Message", bg=bg, fg=dim, font=("Segoe UI", 9)).pack(anchor="w", padx=16)
-    txt = tk.Text(win, height=9, bg=card, fg=ink, insertbackground=ink, relief="flat",
-                  font=("Segoe UI", 10), wrap="word")
-    txt.pack(fill="both", expand=True, padx=16, pady=(4, 8))
-
-    tk.Label(win, text="Opens in your browser so you can check it before sending. "
-                       "Your app version and Windows version are included.",
-             bg=bg, fg=dim, font=("Segoe UI", 8), wraplength=470,
-             justify="left").pack(anchor="w", padx=16, pady=(0, 8))
 
     def send():
         body = txt.get("1.0", "end").strip()
@@ -677,19 +692,32 @@ def _feedback_popup():
         try:
             url = feedback.build_url(kind.get(), body, name=name.get(),
                                      version=VERSION, system=platform.platform())
-            webbrowser.open(url)
+            _open_in_browser(url)
             log("feedback opened in browser (%s)" % kind.get())
             win.destroy()
         except Exception as e:
             log("feedback failed:", e)
             messagebox.showerror("Send feedback", str(e), parent=win)
 
-    btns = tk.Frame(win, bg=bg); btns.pack(fill="x", padx=16, pady=(0, 16))
+    # Buttons are packed against the BOTTOM edge BEFORE the message box, so
+    # they always keep their space. Packed after an expanding widget they get
+    # pushed off the window on a smaller screen or at a higher display
+    # scaling, which looks exactly like a dialog with no send button.
+    btns = tk.Frame(win, bg=bg); btns.pack(side="bottom", fill="x", padx=16, pady=(0, 14))
     tk.Button(btns, text="Cancel", command=win.destroy, relief="flat",
-              bg=card, fg=ink, font=("Segoe UI", 10), padx=14).pack(side="right")
-    tk.Button(btns, text="Review and send", command=send, relief="flat",
+              bg=card, fg=ink, font=("Segoe UI", 10), padx=16, pady=4).pack(side="right")
+    tk.Button(btns, text="Send", command=send, relief="flat",
               bg="#7c5cff", fg="#ffffff", font=("Segoe UI", 10, "bold"),
-              padx=14).pack(side="right", padx=(0, 8))
+              padx=18, pady=4).pack(side="right", padx=(0, 8))
+    tk.Label(win, text="Opens in your browser so you can check it before sending. "
+                       "Your app version and Windows version are included.",
+             bg=bg, fg=dim, font=("Segoe UI", 8), wraplength=470,
+             justify="left").pack(side="bottom", anchor="w", padx=16, pady=(0, 8))
+
+    txt = tk.Text(win, height=7, bg=card, fg=ink, insertbackground=ink, relief="flat",
+                  font=("Segoe UI", 10), wrap="word")
+    txt.pack(fill="both", expand=True, padx=16, pady=(4, 8))
+
     win.bind("<Escape>", lambda e: win.destroy())
     _force_foreground(win)
     txt.focus_force()

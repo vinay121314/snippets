@@ -30,7 +30,7 @@ Single portable `.exe`. No installer, no admin rights, no runtime to install.
 - **Import and export**: JSON, one snippet or all of them.
 - **Automatic updates**: the app checks for a new version and can install it
   and restart itself, so there is nothing to download by hand.
-- **Dark by default**, with a light theme a click away in the title bar.
+- **Dark by default**, with a **Dark** switch in the title bar for light mode.
 - **Feedback built in**: report a bug or suggest something from the tray menu.
   It opens a pre-filled report in the browser so you can see exactly what is
   being sent before you submit it.
@@ -101,6 +101,7 @@ python tests/test_updater.py  update logic, including a real download and swap
 python tests/test_feedback.py the feedback report builder
 python tests/test_live.py     end-to-end against real editing surfaces
 python tests/test_ui.py       renders the editor and checks it wired up
+python tests/test_dialogs.py  asserts the tray dialogs draw their buttons
 ```
 
 `test_live.py` is the layer that matters. It verifies cursor placement against

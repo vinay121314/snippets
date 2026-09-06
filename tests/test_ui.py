@@ -37,7 +37,7 @@ def run(win):
             "message rendered": "<b>bold</b>" in (win.evaluate_js("document.getElementById('fText').innerHTML") or ""),
             "ol present":       "<ol" in (win.evaluate_js("document.getElementById('fText').innerHTML") or ""),
             "defaults to dark":   win.evaluate_js("document.documentElement.getAttribute('data-theme')") == "dark",
-            "theme button exists": win.evaluate_js("!!document.getElementById('themeBtn')"),
+            "theme switch drawn": win.evaluate_js("(function(){var t=document.getElementById('themeTg');return !!t && t.getBoundingClientRect().width>10;})()"),
             "no glass blur":    (win.evaluate_js("getComputedStyle(document.querySelector('.topbar')).backdropFilter") or "none") == "none",
             "body has bg":      (win.evaluate_js("getComputedStyle(document.body).backgroundColor") or "") not in ("", "rgba(0, 0, 0, 0)"),
         }
