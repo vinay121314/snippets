@@ -129,6 +129,8 @@ def download(manifest, dest, opener=_open):
     name = manifest.get("exe") or "Snippets.exe"
     url = manifest.get("url") or (cfg["base"] + name)
     sha = (manifest.get("sha256") or "").lower().strip()
+    if not sha:
+        raise RuntimeError("manifest has no sha256 -- refusing to install unverified download")
     h = hashlib.sha256()
     total = 0
     with opener(url) as r, open(dest, "wb") as f:
@@ -139,7 +141,7 @@ def download(manifest, dest, opener=_open):
             h.update(chunk); f.write(chunk); total += chunk.__len__()
     if total < 1024:
         raise RuntimeError("downloaded file is implausibly small (%d bytes)" % total)
-    if sha and h.hexdigest() != sha:
+    if h.hexdigest() != sha:
         raise RuntimeError("checksum mismatch: expected %s, got %s" % (sha, h.hexdigest()))
     return dest
 

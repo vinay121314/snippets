@@ -137,8 +137,15 @@ class DownloadVerification(unittest.TestCase):
     def test_truncated_download_rejected(self):
         dest = os.path.join(self.dir, "c.exe")
         with self.assertRaises(RuntimeError) as cm:
-            updater.download({"url": "http://x/c.exe"}, dest, opener=self._payload(b"tiny"))
+            updater.download({"sha256": "00" * 32, "url": "http://x/c.exe"},
+                             dest, opener=self._payload(b"tiny"))
         self.assertIn("implausibly small", str(cm.exception))
+
+    def test_missing_checksum_rejected(self):
+        dest = os.path.join(self.dir, "d.exe")
+        with self.assertRaises(RuntimeError) as cm:
+            updater.download({"url": "http://x/d.exe"}, dest, opener=self._payload(b"x" * 4096))
+        self.assertIn("sha256", str(cm.exception))
 
 
 class Swap(unittest.TestCase):

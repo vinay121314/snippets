@@ -117,7 +117,9 @@ def _outbox_dir(d=None):
 
 def queue(payload, d=None):
     """Keep a report that could not be sent. Named by time so the order is
-    preserved and two saved in the same second cannot collide."""
+    preserved, with a counter to break ties: Windows' clock resolution is
+    often ~15ms, so two reports queued close together can share the same
+    millisecond and would otherwise silently overwrite one another."""
     d = _outbox_dir(d)
     existing = pending(d)
     if len(existing) >= MAX_OUTBOX:
@@ -125,7 +127,10 @@ def queue(payload, d=None):
         try: os.remove(existing[0])
         except Exception: pass
     stamp = time.strftime("%Y%m%d-%H%M%S") + "-%03d" % (int(time.time() * 1000) % 1000)
-    path = os.path.join(d, "fb_%s.json" % stamp)
+    n = 0
+    path = os.path.join(d, "fb_%s-%03d.json" % (stamp, n))
+    while os.path.exists(path):
+        n += 1; path = os.path.join(d, "fb_%s-%03d.json" % (stamp, n))
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f)
     return path
@@ -157,6 +162,17 @@ def flush(d=None, url=None, poster=_post):
             continue
         try:
             send(payload, url=url, poster=poster)
+        except urllib.error.HTTPError as e:
+            if 400 <= e.code < 500:
+                # The relay rejected this specific report -- retrying it
+                # verbatim will never succeed and would otherwise block every
+                # newer report behind it forever. Drop it and keep going.
+                log("feedback rejected (%d), discarding:" % e.code, e)
+                try: os.remove(path)
+                except Exception: pass
+                continue
+            log("feedback still queued:", e)
+            break                             # server error, try again later
         except Exception as e:
             log("feedback still queued:", e)
             break                             # endpoint down, stop trying now

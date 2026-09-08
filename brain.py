@@ -844,10 +844,17 @@ def _check_for_updates(background=False):
         _notify("Snippets", "You are on the latest version (v%s)." % VERSION)
     return m
 
+_update_in_progress = threading.Lock()
+
 def _install_update():
-    """Download, verify, swap the executable, and restart into it."""
-    m = _pending_update["manifest"]
+    """Download, verify, swap the executable, and restart into it. A manual
+    click and the 6-hourly auto-check can both reach this at once; without a
+    lock they'd download to the same temp path and race to replace the same
+    running exe."""
+    if not _update_in_progress.acquire(blocking=False):
+        log("update already in progress, ignoring"); return
     try:
+        m = _pending_update["manifest"]
         if not m:
             m = _check_for_updates()
             if not m: return
@@ -870,6 +877,8 @@ def _install_update():
     except Exception as e:
         log("update failed:", e)
         _notify("Snippets", "Update failed: %s" % e)
+    finally:
+        _update_in_progress.release()
 
 def _menu_update(icon=None, item=None):
     threading.Thread(target=_install_update if _pending_update["manifest"]

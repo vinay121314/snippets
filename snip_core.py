@@ -314,6 +314,8 @@ _GlobalUnlock=_ctypes.windll.kernel32.GlobalUnlock
 _GlobalUnlock.argtypes=[_ctypes.c_void_p]
 _SetClipboardData=_ctypes.windll.user32.SetClipboardData
 _SetClipboardData.restype=_ctypes.c_void_p; _SetClipboardData.argtypes=[_ctypes.c_uint,_ctypes.c_void_p]
+_GlobalFree=_ctypes.windll.kernel32.GlobalFree
+_GlobalFree.argtypes=[_ctypes.c_void_p]
 
 def _set_clipboard_html(frag, plain):
     import ctypes
@@ -333,7 +335,14 @@ def _set_clipboard_html(frag, plain):
         _GlobalUnlock(h); return h
     if not u.OpenClipboard(0): return False
     try:
-        u.EmptyClipboard(); _SetClipboardData(CF_HTML,_alloc(data)); _SetClipboardData(CF_UNICODETEXT,_allocw(plain)); return True
+        u.EmptyClipboard()
+        # SetClipboardData takes ownership of the handle only on success --
+        # on failure Windows requires the caller to free it, or it leaks.
+        h1=_alloc(data)
+        if not _SetClipboardData(CF_HTML,h1): _GlobalFree(h1); return False
+        h2=_allocw(plain)
+        if not _SetClipboardData(CF_UNICODETEXT,h2): _GlobalFree(h2); return False
+        return True
     finally: u.CloseClipboard()
 
 def _strip_list_markers(t):
@@ -663,12 +672,17 @@ def _paste_one(text):
 def paste_text(raw, store):
     if not pyperclip or not keyboard:
         log("paste skipped: missing deps"); return
-    try:
-        text=_expand_dynamic(raw, store)
-        old=""
-        try: old=pyperclip.paste()
+    text=_expand_dynamic(raw, store)
+    old=""
+    try: old=pyperclip.paste()
+    except Exception: pass
+
+    def _restore():
+        time.sleep(0.6)
+        try: pyperclip.copy(old)
         except Exception: pass
 
+    try:
         # Where the insertion starts, for undo-expansion. Best effort only:
         # a pattern fetched before pasting can be stale (see _uia_text_pattern),
         # so this number is NEVER trusted on its own -- the undo re-reads the
@@ -738,10 +752,7 @@ def paste_text(raw, store):
                                "text":text.replace("$|",""),   # marker never lands in the document
                                "rich":_has_fmt(text),"at":time.time()})
 
-        def _r():
-            time.sleep(0.6)
-            try: pyperclip.copy(old)
-            except Exception: pass
-        threading.Thread(target=_r,daemon=True).start()
     except Exception as e:
         log("paste error:", e)
+    finally:
+        threading.Thread(target=_restore,daemon=True).start()
