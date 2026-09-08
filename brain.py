@@ -30,7 +30,7 @@ from snip_core import log, APP_NAME, SEARCH_HOTKEY, DATA_FILE
 # Shown in the About sheet (the ? button in the editor). Single source for
 # the credit and version -- nothing else hard-codes either.
 AUTHOR  = "Vinay Prasad"
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 # ---------------------------------------------------------------------------
 
 MAIN_HOTKEY="ctrl+alt+n"

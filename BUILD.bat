@@ -62,6 +62,17 @@ rmdir /s /q build >nul 2>&1
 rmdir /s /q __pycache__ >nul 2>&1
 del /f /q Snippets.spec >nul 2>&1
 
+echo Writing dist\version.json...
+python make_release.py
+if errorlevel 1 (
+  echo.
+  echo ERROR: could not write dist\version.json - exe was built but the
+  echo release manifest was not. Do not publish this build as-is.
+  pause
+  exit /b 1
+)
+
 echo.
 echo Done. Run dist\Snippets.exe
+echo Upload dist\Snippets.exe AND dist\version.json to the release.
 pause
